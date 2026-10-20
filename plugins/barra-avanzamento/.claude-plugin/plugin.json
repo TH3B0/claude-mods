@@ -1,0 +1,7 @@
+{
+  "name": "barra-avanzamento",
+  "version": "0.2.0",
+  "description": "Barra sopra la chat: passo attuale, quanti ne mancano, tempo trascorso e stimato",
+  "author": { "name": "Luca De Bortoli" },
+  "types": "./types/index.d.ts"
+}

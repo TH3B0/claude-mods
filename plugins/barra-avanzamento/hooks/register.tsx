@@ -2,6 +2,10 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Passo, Tempi } from '../types'
+import { avanza, daVoci, ripartire, segna } from './piano'
+
+/** La lista dei passi che l'app desktop mostra sotto i messaggi. */
+const UPDATE_PLAN = 'mcp__ccd_turn__update_plan'
 
 const passi = atom({ plugin: 'barra-avanzamento', key: 'passi' } as const, [] as Passo[])
 const tempi = atom({ plugin: 'barra-avanzamento', key: 'tempi' } as const, null as Tempi | null)
@@ -93,9 +97,40 @@ export const register: Register = on => {
     return ran
   }).catch(($, e, next) => next(e))
 
+  // update_plan (app desktop) e TodoWrite: una lista intera, oppure avanza / done / start.
+  on('tool.call', async ($, e, next) => {
+    const ran = await next(e)
+    if (e.agentId !== undefined || ran.deny !== undefined || ran.isError === true) return ran
+    if (e.tool !== UPDATE_PLAN && e.tool !== 'TodoWrite') return ran
+
+    const prima = await read($, passi)
+    const intera = daVoci(e.tool === 'TodoWrite' ? e.todos : e.items, e.tool === 'TodoWrite' ? 'todo' : 'piano')
+    let dopo: Passo[] | undefined
+    if (intera) {
+      dopo = intera
+    } else if (e.tool === UPDATE_PLAN && e.advance === true) {
+      dopo = avanza(prima)
+    } else if (e.tool === UPDATE_PLAN && (Array.isArray(e.done) || typeof e.start === 'number')) {
+      const fatti = Array.isArray(e.done) ? e.done.filter((n): n is number => typeof n === 'number') : []
+      dopo = segna(prima, fatti, typeof e.start === 'number' ? e.start : undefined)
+    }
+    if (dopo === undefined) return ran
+
+    if (intera && ripartire(prima, intera)) {
+      const adesso = await $.clock.now()
+      await update($, tempi, () => ({ inizio: adesso, fine: null }))
+    }
+    const finale = dopo
+    await update($, passi, () => finale)
+    await dopoModifica($)
+    return ran
+  }).catch(($, e, next) => next(e))
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    // Quello che disegnano le altre mod (barra-sessione, savvy-progress, …) resta, sopra la barra.
+    const sotto = await next(e)
     const lista = await read($, passi)
-    if (e.props.hasSurvey || lista.length === 0) return next(e)
+    if (e.props.hasSurvey || lista.length === 0) return sotto
 
     const t = await read($, tempi)
     const adesso = await read($, ora)
@@ -134,6 +169,7 @@ export const register: Register = on => {
 
     return (
       <Box flexDirection="column">
+        {sotto}
         <Text>
           {barra} {percento}%  {dettaglio}
         </Text>

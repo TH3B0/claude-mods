@@ -6,8 +6,7 @@
       "name": "barra-avanzamento",
       "source": "./plugins/barra-avanzamento",
       "description": "Barra sopra la chat: passo attuale, quanti ne mancano, tempo trascorso e stimato",
-      "version": "0.1.0",
-      "strict": false
+      "version": "0.2.0"
     }
   ]
 }
