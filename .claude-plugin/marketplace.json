@@ -1,0 +1,7 @@
+{
+  "name": "debo-mods",
+  "owner": { "name": "Luca De Bortoli" },
+  "plugins": [
+    { "name": "barra-avanzamento", "source": "./plugins/barra-avanzamento", "description": "Barra sopra la chat: passo attuale, quanti ne mancano, tempo trascorso e stimato" }
+  ]
+}
