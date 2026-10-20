@@ -65,3 +65,34 @@ test('la barra segue la lista dei passi dell\'app e tiene le altre barre', async
     await ui.unmount()
   }
 })
+
+test('wrap_up chiude il piano: la barra si ferma, poi sparisce al messaggio dopo', async ($, on) => {
+  const clock = mock.clock(on, { now: T0 })
+  on('prompt.submit', ($, e) => ({ text: e.text }))
+  on('tool.call', () => ({ result: 'ok' }))
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+
+  await $.tool.call({
+    tool: 'mcp__ccd_turn__update_plan',
+    items: [{ content: 'Disattivare file-tree', status: 'in_progress' }],
+    scope: 'continuation',
+  })
+  await clock.advance(35_000)
+  await $.tool.call({ tool: 'mcp__ccd_turn__wrap_up', recap: 'Fatto.' })
+
+  const ui = await $.ui.mount({ plugin: 'barra-avanzamento', surface: 'desktop', ...BANDA })
+  expect(await ui.find({ type: 'Text', text: /100%.*Completato ✓/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /in 0:35/ })).toBeDefined()
+  // il tempo non va più avanti
+  await clock.advance(5 * MIN)
+  expect(await ui.find({ type: 'Text', text: /in 0:35/ })).toBeDefined()
+  await ui.unmount()
+
+  await $.prompt.submit({ text: 'grazie' } as Parameters<typeof $.prompt.submit>[0])
+  const dopo = await $.ui.mount({ plugin: 'barra-avanzamento', surface: 'desktop', ...BANDA })
+  expect(await dopo.find({ type: 'Text', text: /Completato|Passo/ })).toBeUndefined()
+  await dopo.unmount()
+})

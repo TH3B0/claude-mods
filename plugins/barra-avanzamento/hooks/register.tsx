@@ -2,10 +2,12 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Passo, Tempi } from '../types'
-import { avanza, daVoci, ripartire, segna } from './piano'
+import { avanza, chiudi, daVoci, ripartire, segna } from './piano'
 
 /** La lista dei passi che l'app desktop mostra sotto i messaggi. */
 const UPDATE_PLAN = 'mcp__ccd_turn__update_plan'
+/** Il riepilogo di fine turno dell'app: spunta i passi rimasti senza passare da update_plan. */
+const WRAP_UP = 'mcp__ccd_turn__wrap_up'
 
 const passi = atom({ plugin: 'barra-avanzamento', key: 'passi' } as const, [] as Passo[])
 const tempi = atom({ plugin: 'barra-avanzamento', key: 'tempi' } as const, null as Tempi | null)
@@ -97,10 +99,27 @@ export const register: Register = on => {
     return ran
   }).catch(($, e, next) => next(e))
 
+  // Un piano finito resta in vista fino al messaggio dopo, poi sparisce.
+  on('prompt.submit', async ($, e, next) => {
+    if (tuttiFatti(await read($, passi))) {
+      await update($, passi, () => [])
+      await update($, tempi, () => null)
+    }
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
   // update_plan (app desktop) e TodoWrite: una lista intera, oppure avanza / done / start.
   on('tool.call', async ($, e, next) => {
     const ran = await next(e)
     if (e.agentId !== undefined || ran.deny !== undefined || ran.isError === true) return ran
+    if (e.tool === WRAP_UP) {
+      const prima = await read($, passi)
+      if (prima.length > 0 && prima.some(p => p.stato !== 'completed')) {
+        await update($, passi, () => chiudi(prima))
+        await dopoModifica($)
+      }
+      return ran
+    }
     if (e.tool !== UPDATE_PLAN && e.tool !== 'TodoWrite') return ran
 
     const prima = await read($, passi)

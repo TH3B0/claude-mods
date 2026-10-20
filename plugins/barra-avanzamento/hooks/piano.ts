@@ -36,6 +36,11 @@ export function avanza(lista: readonly Passo[]): Passo[] {
   )
 }
 
+/** wrap_up a fine turno: l'app spunta da sé i passi rimasti, la barra fa lo stesso. */
+export function chiudi(lista: readonly Passo[]): Passo[] {
+  return lista.map(p => (p.stato === 'completed' ? p : { ...p, stato: 'completed' }))
+}
+
 /** update_plan `done` / `start`, con i passi contati da 1; un solo passo resta in corso. */
 export function segna(lista: readonly Passo[], fatti: readonly number[], inizia?: number): Passo[] {
   const f = new Set(fatti.map(n => n - 1))
